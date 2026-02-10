@@ -16,7 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.metrics import plot_roc_curve, classification_report
+from sklearn.metrics import RocCurveDisplay, classification_report
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -315,7 +315,7 @@ def train_models(x_train, x_test, y_train, y_test):
                                 y_test_preds_rf)
 
     plt.figure(figsize=(15, 8))
-    lrc_plot = plot_roc_curve(lrc, x_test, y_test)
+    lrc_plot = RocCurveDisplay.from_estimator(lrc, x_test, y_test)
     plt.tight_layout()
     plt.savefig(f'{constants.RESULTS_FOLDER_PATH}logistic_regression_roc_curve.png')
     plt.close()
@@ -323,7 +323,7 @@ def train_models(x_train, x_test, y_train, y_test):
     # plots
     plt.figure(figsize=(15, 8))
     axis = plt.gca()
-    plot_roc_curve(
+    RocCurveDisplay.from_estimator(
         cv_rfc.best_estimator_,
         x_test,
         y_test,
@@ -341,11 +341,11 @@ def train_models(x_train, x_test, y_train, y_test):
     rfc_model = joblib.load(f'{constants.MODELS_FOLDER_PATH}rfc_model.pkl')
     lr_model = joblib.load(f'{constants.MODELS_FOLDER_PATH}logistic_model.pkl')
 
-    lrc_plot = plot_roc_curve(lr_model, x_test, y_test)
+    lrc_plot = RocCurveDisplay.from_estimator(lr_model, x_test, y_test)
 
     plt.figure(figsize=(15, 8))
     axis = plt.gca()
-    plot_roc_curve(rfc_model, x_test, y_test, ax=axis, alpha=0.8)
+    RocCurveDisplay.from_estimator(rfc_model, x_test, y_test, ax=axis, alpha=0.8)
     lrc_plot.plot(ax=axis, alpha=0.8)
     plt.tight_layout()
     plt.savefig(f'{constants.RESULTS_FOLDER_PATH}roc_curve.png')
