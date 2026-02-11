@@ -5,12 +5,34 @@ Author: Belen Esteve
 Date: Feb 2026
 '''
 # Paths
-BANK_DATA_CSV_PATH = "./data/bank_data.csv"
-OUTPUT_COLUMN_NAME = "Churn"
-RESULTS_FOLDER_PATH = "./images/results/"
-EDA_FOLDER_PATH = "./images/eda/"
-MODELS_FOLDER_PATH = "./models/"
-LOGS_PATH = "./logs/churn_library.log"
+HOME = './predict_customer_churn/'
+BANK_DATA_CSV_PATH = f'{HOME}data/bank_data.csv'
+RESULTS_FOLDER_PATH = f'{HOME}images/results/'
+EDA_FOLDER_PATH = f'{HOME}images/eda/'
+MODELS_FOLDER_PATH = f'{HOME}models/'
+LOGS_PATH = f'{HOME}logs/churn_logs.log'
+
+# Figure file names
+CHURN_LABELS_FIGURE = 'churn_distribution.png'
+CUSTOMER_AGE_FIGURE = 'customer_age_distribution.png'
+MARITAL_STATUS_FIGURE = 'marital_status_distribution.png'
+TOTAL_TRANS_CT_FIGURE = 'total_transaction_distribution.png'
+HEATMAP_FIGURE = 'heatmap.png'
+CLASSIFICATION_REPORT_FIGURE = 'classification_report.png'
+ROC_CURVES_FIGURE = 'roc_curve_results.png'
+LOGISTIC_REGRESSION_FIGURE = 'logistic_results.png'
+RANDOM_FOREST_FIGURE = 'rf_results.png'
+SHAP_FIGURE = 'shap_summary_plot.png'
+FEATURE_IMPORTANCE_FIGURE = 'feature_importances.png'
+
+# Model names
+RFC_MODEL_NAME = 'random_forest'
+LR_MODEL_NAME = 'logistic_regression'
+MODEL_FILENAME = 'model.pkl'
+
+# Other variables
+RANDOM_SEED = 424
+OUTPUT_COLUMN_NAME = 'Churn'
 
 # Lists
 CATEGORY_COLUMNS_LIST = [

@@ -4,7 +4,8 @@ Module for the churn library
 Author: Belen Esteve
 Date: Feb 2026
 '''
-# pylint: disable=too-many-locals, too-many-statements, too-many-arguments, import-error
+# pylint: disable=too-many-locals, too-many-statements,
+# too-many-arguments, import-error
 
 # import libraries
 import os
@@ -14,6 +15,7 @@ import joblib
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import seaborn as sns
 
 from sklearn.metrics import RocCurveDisplay, classification_report
@@ -22,10 +24,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
+import constants
+
 sns.set()
-
-from . import constants
-
+matplotlib.use("Agg")
 
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
@@ -71,40 +73,41 @@ def perform_eda(csv_df):
     logging.info("Missing values:\n%s", csv_df.isnull().sum())
     logging.info("Dataframe description:\n%s", csv_df.describe())
 
+    logging.info("Attrition_flag")
+    logging.info(csv_df['Attrition_Flag'])
+
     csv_df[constants.OUTPUT_COLUMN_NAME] = csv_df['Attrition_Flag'].apply(
         lambda val: 0 if val == "Existing Customer" else 1)
 
+    logging.info("Attrition_flag")
+    logging.info(csv_df['Attrition_Flag'])
+
+    # Ensure the directory exists or create it
+    if not os.path.exists(constants.EDA_FOLDER_PATH):
+        os.makedirs(constants.EDA_FOLDER_PATH)
+
     plt.figure(figsize=(20, 10))
     csv_df[constants.OUTPUT_COLUMN_NAME].hist()
-    plt.tight_layout()
-    plt.savefig(f'{constants.EDA_FOLDER_PATH}churn.png')
-    plt.close()
+    save_figure(constants.EDA_FOLDER_PATH + constants.CHURN_LABELS_FIGURE)
 
     plt.figure(figsize=(20, 10))
     csv_df['Customer_Age'].hist()
-    plt.tight_layout()
-    plt.savefig(f'{constants.EDA_FOLDER_PATH}customer_age.png')
-    plt.close()
+    save_figure(constants.EDA_FOLDER_PATH + constants.CUSTOMER_AGE_FIGURE)
 
     plt.figure(figsize=(20, 10))
     csv_df.Marital_Status.value_counts('normalize').plot(kind='bar')
-    plt.tight_layout()
-    plt.savefig(f'{constants.EDA_FOLDER_PATH}marital_status.png')
-    plt.close()
+    save_figure(constants.EDA_FOLDER_PATH + constants.MARITAL_STATUS_FIGURE)
 
     plt.figure(figsize=(20, 10))
     # Show distributions of 'Total_Trans_Ct' and add a smooth curve obtained
     # using a kernel density estimate
     sns.histplot(csv_df['Total_Trans_Ct'], stat='density', kde=True)
-    plt.tight_layout()
-    plt.savefig(f'{constants.EDA_FOLDER_PATH}total_trans_ct.png')
-    plt.close()
+    save_figure(constants.EDA_FOLDER_PATH + constants.TOTAL_TRANS_CT_FIGURE)
 
     plt.figure(figsize=(20, 10))
-    sns.heatmap(csv_df.corr(), annot=False, cmap='Dark2_r', linewidths=2)
-    plt.tight_layout()
-    plt.savefig(f'{constants.EDA_FOLDER_PATH}heatmap.png')
-    plt.close()
+    numeric_df = csv_df.select_dtypes(include='number')
+    sns.heatmap(numeric_df.corr(), annot=False, cmap='Dark2_r', linewidths=2)
+    save_figure(constants.EDA_FOLDER_PATH + constants.HEATMAP_FIGURE)
 
 
 def encoder_helper(csv_df, category_lst, response='Churn'):
@@ -124,9 +127,12 @@ def encoder_helper(csv_df, category_lst, response='Churn'):
     for category in category_lst:
         try:
             csv_df[f'{category}_{response}'] = csv_df[category].map(
-                csv_df.groupby(category).mean()[response])
+                csv_df.groupby(category)[response].mean())
         except KeyError:
-            logging.error("Column %s or %s not found in dataframe", category, response)
+            logging.error(
+                "Column %s or %s not found in dataframe",
+                category,
+                response)
 
     return csv_df
 
@@ -157,82 +163,42 @@ def perform_feature_engineering(csv_df, response='Churn'):
 
     # train test split
     x_train, x_test, y_train, y_test = train_test_split(
-        features, labels, test_size=0.3, random_state=42)
+        features, labels, test_size=0.3, random_state=constants.RANDOM_SEED)
 
     return x_train, x_test, y_train, y_test
 
 
 def classification_report_image(y_train,
                                 y_test,
-                                y_train_preds_lr,
-                                y_train_preds_rf,
-                                y_test_preds_lr,
-                                y_test_preds_rf):
+                                y_train_preds,
+                                y_test_preds,
+                                model_name):
     '''
     produces classification report for training and testing results and stores report as image
     in images folder
     input:
             y_train: training response values
             y_test:  test response values
-            y_train_preds_lr: training predictions from logistic regression
-            y_train_preds_rf: training predictions from random forest
-            y_test_preds_lr: test predictions from logistic regression
-            y_test_preds_rf: test predictions from random forest
+            y_train_preds: training predictions from a model
+            y_test_preds: test predictions from a model
+            model_name: str with the model name
 
     output:
              None
     '''
-    plt.figure(figsize=(15, 10))
-
-    plt.text(
-        0.01,
-        0.85,
-        'Random Forest - Train\n' +
-        classification_report(
-            y_train,
-            y_train_preds_rf),
-        fontdict={
-            'size': 10},
-        family='monospace')
-
-    plt.text(
-        0.01,
-        0.45,
-        'Random Forest - Test\n' +
-        classification_report(
-            y_test,
-            y_test_preds_rf),
-        fontdict={
-            'size': 10},
-        family='monospace')
-
-    plt.text(
-        0.5,
-        0.85,
-        'Logistic Regression - Train\n' +
-        classification_report(
-            y_train,
-            y_train_preds_lr),
-        fontdict={
-            'size': 10},
-        family='monospace')
-
-    plt.text(
-        0.5,
-        0.45,
-        'Logistic Regression - Test\n' +
-        classification_report(
-            y_test,
-            y_test_preds_lr),
-        fontdict={
-            'size': 10},
-        family='monospace')
-
+    plt.figure(figsize=(5, 5))
+    plt.text(0.01, 1.25, str(f'{model_name} Train'), {
+             'fontsize': 10}, fontproperties='monospace')
+    plt.text(0.01, 0.05, str(classification_report(y_test, y_test_preds)), {
+             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
+    plt.text(0.01, 0.6, str(f'{model_name} Test'), {
+             'fontsize': 10}, fontproperties='monospace')
+    plt.text(0.01, 0.7, str(classification_report(y_train, y_train_preds)), {
+             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
     plt.axis('off')
-    plt.tight_layout()
 
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}classification_report.png')
-    plt.close()
+    save_figure(constants.RESULTS_FOLDER_PATH + model_name +
+                "_" + constants.CLASSIFICATION_REPORT_FIGURE)
 
 
 def feature_importance_plot(model, x_data, output_pth):
@@ -246,8 +212,9 @@ def feature_importance_plot(model, x_data, output_pth):
     output:
              None
     '''
+    best_estimator = get_best_estimator(model)
     # Calculate feature importances
-    importances = model.best_estimator_.feature_importances_
+    importances = best_estimator.feature_importances_
     # Sort feature importances in descending order
     indices = np.argsort(importances)[::-1]
 
@@ -266,9 +233,7 @@ def feature_importance_plot(model, x_data, output_pth):
 
     # Add feature names as x-axis labels
     plt.xticks(range(x_data.shape[1]), names, rotation=90)
-    plt.tight_layout()
-    plt.savefig(output_pth)
-    plt.close()
+    save_figure(output_pth)
 
 
 def train_models(x_train, x_test, y_train, y_test):
@@ -282,45 +247,40 @@ def train_models(x_train, x_test, y_train, y_test):
     output:
               None
     '''
-    # grid search
-    rfc = RandomForestClassifier(random_state=42)
+    # Create results and model folders if they do not not exist
+    if not os.path.exists(constants.RESULTS_FOLDER_PATH):
+        os.makedirs(constants.RESULTS_FOLDER_PATH)
+
+    if not os.path.exists(constants.MODELS_FOLDER_PATH):
+        os.makedirs(constants.MODELS_FOLDER_PATH)
+
     # Use a different solver if the default 'lbfgs' fails to converge
     # Reference:
     # https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression
     lrc = LogisticRegression(solver='lbfgs', max_iter=3000)
+    lrc_model_data = [lrc, constants.LR_MODEL_NAME]
+    lrc, lrc_best_model = train_model(
+        lrc_model_data, x_train, x_test, y_train, y_test)
 
     param_grid = {
         'n_estimators': [200, 500],
-        'max_features': ['auto', 'sqrt'],
+        'max_features': ['sqrt'],
         'max_depth': [4, 5, 100],
         'criterion': ['gini', 'entropy']
     }
 
-    cv_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv=5)
-    cv_rfc.fit(x_train, y_train)
+    # grid search
+    rfc = RandomForestClassifier(random_state=constants.RANDOM_SEED)
+    cv_rfc = GridSearchCV(estimator=rfc,
+                          param_grid=param_grid,
+                          cv=5,
+                          n_jobs=-1)
+    cv_rfc_model_data = [cv_rfc, constants.RFC_MODEL_NAME]
+    cv_rfc, rfc_best_model = train_model(
+        cv_rfc_model_data, x_train, x_test, y_train, y_test)
 
-    lrc.fit(x_train, y_train)
-
-    y_train_preds_rf = cv_rfc.best_estimator_.predict(x_train)
-    y_test_preds_rf = cv_rfc.best_estimator_.predict(x_test)
-
-    y_train_preds_lr = lrc.predict(x_train)
-    y_test_preds_lr = lrc.predict(x_test)
-
-    classification_report_image(y_train,
-                                y_test,
-                                y_train_preds_lr,
-                                y_train_preds_rf,
-                                y_test_preds_lr,
-                                y_test_preds_rf)
-
-    plt.figure(figsize=(15, 8))
+    # Plot with models
     lrc_plot = RocCurveDisplay.from_estimator(lrc, x_test, y_test)
-    plt.tight_layout()
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}logistic_regression_roc_curve.png')
-    plt.close()
-
-    # plots
     plt.figure(figsize=(15, 8))
     axis = plt.gca()
     RocCurveDisplay.from_estimator(
@@ -330,60 +290,152 @@ def train_models(x_train, x_test, y_train, y_test):
         ax=axis,
         alpha=0.8)
     lrc_plot.plot(ax=axis, alpha=0.8)
-    plt.tight_layout()
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}random_forest_roc_curve.png')
-    plt.close()
+    save_figure(
+        constants.RESULTS_FOLDER_PATH +
+        constants.LR_MODEL_NAME +
+        '_' +
+        constants.RFC_MODEL_NAME +
+        '_' +
+        constants.ROC_CURVES_FIGURE)
 
-    # save best model
-    joblib.dump(cv_rfc.best_estimator_, f'{constants.MODELS_FOLDER_PATH}rfc_model.pkl')
-    joblib.dump(lrc, f'{constants.MODELS_FOLDER_PATH}logistic_model.pkl')
-
-    rfc_model = joblib.load(f'{constants.MODELS_FOLDER_PATH}rfc_model.pkl')
-    lr_model = joblib.load(f'{constants.MODELS_FOLDER_PATH}logistic_model.pkl')
-
-    lrc_plot = RocCurveDisplay.from_estimator(lr_model, x_test, y_test)
+    # Plot with best models
+    lrc_plot = RocCurveDisplay.from_estimator(lrc_best_model, x_test, y_test)
 
     plt.figure(figsize=(15, 8))
     axis = plt.gca()
-    RocCurveDisplay.from_estimator(rfc_model, x_test, y_test, ax=axis, alpha=0.8)
+    RocCurveDisplay.from_estimator(
+        rfc_best_model, x_test, y_test, ax=axis, alpha=0.8)
     lrc_plot.plot(ax=axis, alpha=0.8)
-    plt.tight_layout()
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}roc_curve.png')
-    plt.close()
+    save_figure(
+        constants.RESULTS_FOLDER_PATH +
+        constants.LR_MODEL_NAME +
+        '_' +
+        constants.RFC_MODEL_NAME +
+        '_best_' +
+        constants.ROC_CURVES_FIGURE)
 
-    explainer = shap.TreeExplainer(cv_rfc.best_estimator_)
+
+def train_model(model_data, x_train, x_test, y_train, y_test):
+    '''
+    train, store model results: images + scores, and store models
+    input:
+            model_data: duple of model to be trained and its name
+            x_train: x training data
+            x_test: x testing data
+            y_train: labels training data
+            y_test: labels testing data
+    output:
+            model: trained_model
+            best_model: selected best model
+    '''
+    model, model_name = model_data
+
+    # Train model
+    model.fit(x_train, y_train)
+
+    best_estimator = get_best_estimator(model)
+
+    y_train_preds = best_estimator.predict(x_train)
+    y_test_preds = best_estimator.predict(x_test)
+
+    # scores
+    logging.info('%s results', model_name)
+    logging.info('test results')
+    logging.info(classification_report(y_test, y_test_preds))
+    logging.info('train results')
+    logging.info(classification_report(y_train, y_train_preds))
+
+    # save best model
+    model_file_path = constants.MODELS_FOLDER_PATH + \
+        model_name + '_' + constants.MODEL_FILENAME
+
+    joblib.dump(best_estimator, model_file_path)
+    best_model = joblib.load(model_file_path)
+
+    # Explain the features only for Grid Search (not allowed for Logistic
+    # Regression)
+    if isinstance(model, GridSearchCV):
+        explain_features(model_data, x_test)
+
+        classification_report_image(y_train,
+                                    y_test,
+                                    y_train_preds,
+                                    y_test_preds,
+                                    model_name=model_name)
+
+    return model, best_model
+
+
+def explain_features(model_data, x_test):
+    '''
+    Obtains the SHAP values of a model and saves its feature importance
+
+    input:
+            model_data: duple of model to be trained and its name
+            x_test: x testing data
+    output:
+            None
+    '''
+    model, model_name = model_data
+
+    if not isinstance(model, GridSearchCV):
+        raise ValueError(
+            f"Undifined model type {
+                type(model)} for feature explanation")
+
+    best_estimator = get_best_estimator(model)
+    explainer = shap.TreeExplainer(best_estimator)
     shap_values = explainer.shap_values(x_test)
-    shap.summary_plot(shap_values, x_test, plot_type="bar")
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}shap_summary_plot.png')
+    shap.summary_plot(
+        shap_values,
+        x_test,
+        plot_type="bar",
+        max_display=10,
+        show=False)
+    save_figure(
+        constants.RESULTS_FOLDER_PATH +
+        model_name +
+        '_' +
+        constants.SHAP_FIGURE)
+
+    feature_importance_plot(model, x_test,
+                            constants.RESULTS_FOLDER_PATH + model_name + '_'
+                            + constants.FEATURE_IMPORTANCE_FIGURE)
+
+
+def save_figure(output_path):
+    '''
+    Helper function to save a figure in the indicated path
+
+    input:
+            output_path: str to the path where the image will be stored
+
+    output:
+            None
+    '''
+    fig = plt.gcf()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
 
-    feature_importance_plot(cv_rfc, x_test,
-                            f'{constants.RESULTS_FOLDER_PATH}feature_importance.png')
 
-    plt.rc('figure', figsize=(5, 5))
-    plt.text(0.01, 1.25, str('Random Forest Train'), {
-             'fontsize': 10}, fontproperties='monospace')
-    plt.text(0.01, 0.05, str(classification_report(y_test, y_test_preds_rf)), {
-             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
-    plt.text(0.01, 0.6, str('Random Forest Test'), {
-             'fontsize': 10}, fontproperties='monospace')
-    plt.text(0.01, 0.7, str(classification_report(y_train, y_train_preds_rf)), {
-             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
-    plt.axis('off')
+def get_best_estimator(model):
+    '''
+    Returns the model best estimator depending on its class
 
-    plt.rc('figure', figsize=(5, 5))
-    plt.text(0.01, 1.25, str('Logistic Regression Train'),
-             {'fontsize': 10}, fontproperties='monospace')
-    plt.text(0.01, 0.05, str(classification_report(y_train, y_train_preds_lr)), {
-             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
-    plt.text(0.01, 0.6, str('Logistic Regression Test'), {
-             'fontsize': 10}, fontproperties='monospace')
-    plt.text(0.01, 0.7, str(classification_report(y_test, y_test_preds_lr)), {
-             'fontsize': 10}, fontproperties='monospace')  # approach improved by OP -> monospace!
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig(f'{constants.RESULTS_FOLDER_PATH}classification_report.png')
-    plt.close()
+    input:
+            model: model to get the best estimator from
+    output:
+            best_estimator: best estimator of the model
+    '''
+    if isinstance(model, LogisticRegression):
+        best_estimator = model
+    elif isinstance(model, GridSearchCV):
+        best_estimator = model.best_estimator_
+    else:
+        raise ValueError(f"Undifined model type {type(model)}")
+
+    return best_estimator
 
 
 if __name__ == "__main__":
